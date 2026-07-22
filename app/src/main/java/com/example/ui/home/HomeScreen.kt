@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
@@ -38,6 +40,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -69,7 +73,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -99,6 +102,12 @@ fun HomeScreen(
     var canvasToRename by remember { mutableStateOf<CanvasEntity?>(null) }
     var renameInputText by remember { mutableStateOf("") }
     var showAccountMenu by remember { mutableStateOf(false) }
+
+    var showCreateCanvasDialog by remember { mutableStateOf(false) }
+    var newCanvasTitle by remember { mutableStateOf("Нова канва") }
+    var selectedPreset by remember { mutableStateOf(com.example.data.models.PageSizePreset.UNLIMITED) }
+    var selectedColorInt by remember { mutableIntStateOf(0xFF121212.toInt()) }
+    var selectedPattern by remember { mutableStateOf(com.example.data.models.BackgroundPattern.DOTTED) }
 
     // File picker for import PDF or photo
     val importPickerLauncher = rememberLauncherForActivityResult(
@@ -220,11 +229,7 @@ fun HomeScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = {
-                    viewModel.createNewCanvas { canvasId ->
-                        onCanvasClick(canvasId)
-                    }
-                },
+                onClick = { showCreateCanvasDialog = true },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
@@ -238,97 +243,6 @@ fun HomeScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp)
         ) {
-            // User Google Account Info Card
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    androidx.compose.material3.Surface(
-                        shape = androidx.compose.foundation.shape.CircleShape,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = (userName ?: "Олег Звенигородський").split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").ifEmpty { "ОЗ" },
-                                color = androidx.compose.ui.graphics.Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = userName ?: "Олег Звенигородський",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            androidx.compose.material3.Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primary
-                            ) {
-                                Text(
-                                    text = "Google",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                        Text(
-                            text = userEmail ?: "olehzvenyhorodskiy@gmail.com",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                        )
-                    }
-                }
-            }
-
-            // Google Drive Backup Banner
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Cloud,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Локальне збереження та експорт",
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            text = "Експортовані конспекти у форматі PDF/PNG зберігаються у локальному сховищі та доступні для поширення",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
-                }
-            }
-
             if (selectedTabIndex == 0) {
                 // My Canvases Tab
                 if (canvases.isEmpty()) {
@@ -452,6 +366,111 @@ fun HomeScreen(
             }
         )
     }
+
+    // New Canvas Creation Dialog
+    if (showCreateCanvasDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateCanvasDialog = false },
+            title = { Text("Параметри нової канви", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = newCanvasTitle,
+                        onValueChange = { newCanvasTitle = it },
+                        singleLine = true,
+                        label = { Text("Назва конспекту") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text("Формат аркуша:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val presets = listOf(
+                            Pair("Безкінечний", com.example.data.models.PageSizePreset.UNLIMITED),
+                            Pair("A4 Вертик.", com.example.data.models.PageSizePreset.A4_VERTICAL),
+                            Pair("A4 Гориз.", com.example.data.models.PageSizePreset.A4_HORIZONTAL)
+                        )
+                        presets.forEach { (label, preset) ->
+                            val isSelected = selectedPreset == preset
+                            OutlinedButton(
+                                onClick = { selectedPreset = preset },
+                                modifier = Modifier.weight(1f),
+                                colors = if (isSelected) androidx.compose.material3.ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer) else androidx.compose.material3.ButtonDefaults.outlinedButtonColors()
+                            ) {
+                                Text(label, fontSize = 10.sp, maxLines = 1)
+                            }
+                        }
+                    }
+
+                    Text("Колір фону канви:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val colorOpts = listOf(
+                            Pair("Темний (#121212)", 0xFF121212.toInt()),
+                            Pair("Темно-синій", 0xFF0F172A.toInt()),
+                            Pair("Світлий", 0xFFFFFFFF.toInt())
+                        )
+                        colorOpts.forEach { (lbl, cInt) ->
+                            val isSel = selectedColorInt == cInt
+                            OutlinedButton(
+                                onClick = { selectedColorInt = cInt },
+                                modifier = Modifier.weight(1f),
+                                colors = if (isSel) androidx.compose.material3.ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else androidx.compose.material3.ButtonDefaults.outlinedButtonColors()
+                            ) {
+                                Text(lbl, fontSize = 10.sp, maxLines = 1)
+                            }
+                        }
+                    }
+
+                    Text("Візерунок сітки:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val patternOpts = listOf(
+                            Pair("Крапки", com.example.data.models.BackgroundPattern.DOTTED),
+                            Pair("Лінії", com.example.data.models.BackgroundPattern.LINED),
+                            Pair("Чистий", com.example.data.models.BackgroundPattern.BLANK)
+                        )
+                        patternOpts.forEach { (lbl, pat) ->
+                            val isSel = selectedPattern == pat
+                            OutlinedButton(
+                                onClick = { selectedPattern = pat },
+                                modifier = Modifier.weight(1f),
+                                colors = if (isSel) androidx.compose.material3.ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer) else androidx.compose.material3.ButtonDefaults.outlinedButtonColors()
+                            ) {
+                                Text(lbl, fontSize = 10.sp, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showCreateCanvasDialog = false
+                    viewModel.createNewCanvas(
+                        title = newCanvasTitle.ifBlank { "Нова канва" },
+                        pageSizePreset = selectedPreset,
+                        pattern = selectedPattern,
+                        bgColor = selectedColorInt
+                    ) { canvasId ->
+                        onCanvasClick(canvasId)
+                    }
+                }) {
+                    Text("Створити")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateCanvasDialog = false }) {
+                    Text("Скасувати")
+                }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -494,18 +513,32 @@ fun CanvasCardItem(
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Drawing Grid Preview Graphic
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val gridStep = 24.dp.toPx()
+                            val lineColor = Color(0x1A000000)
+                            var x = 0f
+                            while (x < size.width) {
+                                drawLine(lineColor, start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
+                                x += gridStep
+                            }
+                            var y = 0f
+                            while (y < size.height) {
+                                drawLine(lineColor, start = Offset(0f, y), end = Offset(size.width, y), strokeWidth = 1f)
+                                y += gridStep
+                            }
+                        }
                         Icon(
-                            imageVector = Icons.Default.Description,
+                            imageVector = Icons.Default.Create,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(40.dp)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = canvas.pageSizePreset.name,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            modifier = Modifier.size(36.dp)
                         )
                     }
                 }

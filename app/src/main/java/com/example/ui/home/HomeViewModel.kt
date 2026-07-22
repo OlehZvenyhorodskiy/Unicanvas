@@ -84,9 +84,20 @@ class HomeViewModel(
         if (!active) _searchQuery.value = ""
     }
 
-    fun createNewCanvas(onCreated: (String) -> Unit) {
+    fun createNewCanvas(
+        title: String = "Нова канва",
+        pageSizePreset: com.example.data.models.PageSizePreset = com.example.data.models.PageSizePreset.UNLIMITED,
+        pattern: com.example.data.models.BackgroundPattern = com.example.data.models.BackgroundPattern.DOTTED,
+        bgColor: Int = 0xFF121212.toInt(),
+        onCreated: (String) -> Unit
+    ) {
         viewModelScope.launch {
-            val id = repository.createNewCanvas()
+            val id = repository.createNewCanvas(
+                title = title,
+                pageSizePreset = pageSizePreset,
+                pattern = pattern,
+                bgColor = bgColor
+            )
             onCreated(id)
         }
     }

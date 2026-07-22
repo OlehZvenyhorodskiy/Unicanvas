@@ -26,6 +26,9 @@ enum class ToolType {
     PEN,
     PENCIL,
     INK_PEN,
+    FOUNTAIN_PEN,
+    MARKER,
+    LASER,
     SELECTOR,
     ERASER,
     RULER
@@ -163,7 +166,8 @@ data class ImageElementEntity(
     val y: Float,
     val width: Float = 300f,
     val height: Float = 200f,
-    val rotation: Float = 0f
+    val rotation: Float = 0f,
+    val opacity: Float = 1.0f
 )
 
 @JsonClass(generateAdapter = true)

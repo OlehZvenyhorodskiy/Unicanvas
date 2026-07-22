@@ -226,47 +226,12 @@ fun InsertMenuBottomSheet(
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(
-                    text = "Paste content (Вставити з буфера)",
+                    text = "Вставити з буфера (Paste content)",
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-            // Draw with fingers toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Gesture,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            text = "Draw with fingers",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = if (drawWithFingers) "Палець малює" else "Палець скролить/зумить",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Switch(
-                    checked = drawWithFingers,
-                    onCheckedChange = onDrawWithFingersChange
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Gesture hint
             Surface(
@@ -275,7 +240,7 @@ fun InsertMenuBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "💡 Tap with two fingers to undo — подвійний дотик двома пальцями завжди скасовує останню дію.",
+                    text = "💡 Порада: Використовуйте кнопкиUndo/Redo у верхньому барі для скасування дій.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(12.dp)

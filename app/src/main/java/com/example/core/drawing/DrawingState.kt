@@ -20,9 +20,9 @@ import kotlin.math.sqrt
 
 data class RulerState(
     val isVisible: Boolean = false,
-    val center: Offset = Offset(500f, 400f),
+    val center: Offset = Offset(400f, 400f),
     val angleRad: Float = 0f,
-    val length: Float = 800f,
+    val length: Float = 700f,
     val width: Float = 90f
 ) {
     fun getEdgeLines(): Pair<Pair<Offset, Offset>, Pair<Offset, Offset>> {
@@ -39,7 +39,7 @@ data class RulerState(
         return Pair(Pair(topStart, topEnd), Pair(bottomStart, bottomEnd))
     }
 
-    fun snapPointIfClose(point: Offset, thresholdDp: Float = 14f): Offset? {
+    fun snapPointIfClose(point: Offset, thresholdDp: Float = 16f): Offset? {
         if (!isVisible) return null
         val (top, bottom) = getEdgeLines()
 
@@ -69,17 +69,26 @@ object DrawingEngine {
         if (points.isEmpty()) return path
         if (points.size == 1) {
             val p = points.first()
-            path.addOval(Rect(p.x - 1f, p.y - 1f, p.x + 1f, p.y + 1f))
+            path.addOval(Rect(p.x - 2f, p.y - 2f, p.x + 2f, p.y + 2f))
+            return path
+        }
+        if (points.size == 2) {
+            path.moveTo(points[0].x, points[0].y)
+            path.lineTo(points[1].x, points[1].y)
             return path
         }
 
         path.moveTo(points[0].x, points[0].y)
-        for (i in 1 until points.size - 1) {
-            val p0 = points[i]
-            val p1 = points[i + 1]
-            val midX = (p0.x + p1.x) / 2f
-            val midY = (p0.y + p1.y) / 2f
-            path.quadraticTo(p0.x, p0.y, midX, midY)
+        var prevX = points[0].x
+        var prevY = points[0].y
+
+        for (i in 1 until points.size) {
+            val curr = points[i]
+            val midX = (prevX + curr.x) / 2f
+            val midY = (prevY + curr.y) / 2f
+            path.quadraticTo(prevX, prevY, midX, midY)
+            prevX = curr.x
+            prevY = curr.y
         }
         val last = points.last()
         path.lineTo(last.x, last.y)
@@ -87,9 +96,11 @@ object DrawingEngine {
     }
 
     fun isPointInStroke(point: Offset, stroke: StrokeEntity, radius: Float): Boolean {
+        val checkRadiusSq = (radius + stroke.baseWidth) * (radius + stroke.baseWidth)
         for (p in stroke.points) {
-            val distSq = (p.x - point.x) * (p.x - point.x) + (p.y - point.y) * (p.y - point.y)
-            if (distSq <= (radius + stroke.baseWidth) * (radius + stroke.baseWidth)) {
+            val dx = p.x - point.x
+            val dy = p.y - point.y
+            if (dx * dx + dy * dy <= checkRadiusSq) {
                 return true
             }
         }
@@ -99,19 +110,24 @@ object DrawingEngine {
     fun erasePixelMode(stroke: StrokeEntity, eraserPos: Offset, radius: Float): List<StrokeEntity> {
         val result = mutableListOf<StrokeEntity>()
         var currentChunk = mutableListOf<StrokePoint>()
+        val radSq = radius * radius
 
         for (p in stroke.points) {
-            val distSq = (p.x - eraserPos.x) * (p.x - eraserPos.x) + (p.y - eraserPos.y) * (p.y - eraserPos.y)
-            if (distSq <= radius * radius) {
+            val dx = p.x - eraserPos.x
+            val dy = p.y - eraserPos.y
+            val distSq = dx * dx + dy * dy
+            if (distSq <= radSq) {
                 if (currentChunk.isNotEmpty()) {
-                    result.add(stroke.copy(id = java.util.UUID.randomUUID().toString(), points = currentChunk))
+                    if (currentChunk.size >= 2) {
+                        result.add(stroke.copy(id = java.util.UUID.randomUUID().toString(), points = currentChunk))
+                    }
                     currentChunk = mutableListOf()
                 }
             } else {
                 currentChunk.add(p)
             }
         }
-        if (currentChunk.isNotEmpty()) {
+        if (currentChunk.size >= 2) {
             result.add(stroke.copy(id = java.util.UUID.randomUUID().toString(), points = currentChunk))
         }
         return result

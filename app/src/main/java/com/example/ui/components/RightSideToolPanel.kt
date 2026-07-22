@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
@@ -57,7 +56,7 @@ fun RightSideToolPanel(
 ) {
     var isExpanded by remember { mutableStateOf(true) }
 
-    val presetWidths = listOf(2f, 6f, 12f, 24f)
+    val presetWidths = listOf(2f, 6f, 12f, 20f, 32f, 50f)
     val presetOpacities = listOf(0.25f, 0.5f, 0.75f, 1f)
 
     val defaultPalette = listOf(
@@ -82,8 +81,7 @@ fun RightSideToolPanel(
             tonalElevation = 4.dp
         ) {
             Box(
-                modifier = Modifier
-                    .padding(vertical = 12.dp, horizontal = 4.dp),
+                modifier = Modifier.padding(vertical = 16.dp, horizontal = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -108,8 +106,8 @@ fun RightSideToolPanel(
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(16.dp)
-                        .width(210.dp)
+                        .padding(18.dp)
+                        .width(260.dp)
                 ) {
                     // Header & Live Preview
                     Row(
@@ -122,12 +120,12 @@ fun RightSideToolPanel(
                                 imageVector = Icons.Default.Tune,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Параметри",
-                                style = MaterialTheme.typography.titleSmall,
+                                text = "Налаштування пензля",
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -135,34 +133,36 @@ fun RightSideToolPanel(
                         // Live Preview Circle
                         Box(
                             modifier = Modifier
-                                .size(28.dp)
+                                .size(36.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size((strokeWidth * 0.8f).dp.coerceIn(3.dp, 22.dp))
+                                    .size((strokeWidth * 0.7f).dp.coerceIn(4.dp, 30.dp))
                                     .clip(CircleShape)
                                     .background(currentColor.copy(alpha = strokeOpacity).toColor())
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                    // 1. Thickness
+                    // 1. Thickness Slider
                     Text(
-                        text = "Товщина: ${strokeWidth.toInt()} px",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        text = "Товщина лінії: ${strokeWidth.toInt()} px",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Slider(
                         value = strokeWidth,
                         onValueChange = onWidthChange,
-                        valueRange = 1f..32f,
-                        modifier = Modifier.height(28.dp)
+                        valueRange = 1f..60f,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp)
                     )
 
                     // Quick Thickness Presets
@@ -171,17 +171,17 @@ fun RightSideToolPanel(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         presetWidths.forEach { w ->
-                            val isSelected = (strokeWidth - w).let { Math.abs(it) < 1.5f }
+                            val isSelected = (strokeWidth - w).let { Math.abs(it) < 2.5f }
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
                                     .clickable { onWidthChange(w) }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
                             ) {
                                 Text(
                                     text = "${w.toInt()}",
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -189,20 +189,22 @@ fun RightSideToolPanel(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    // 2. Opacity / Transparency
+                    // 2. Opacity / Transparency Slider
                     Text(
                         text = "Прозорість: ${(strokeOpacity * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Slider(
                         value = strokeOpacity,
                         onValueChange = onOpacityChange,
                         valueRange = 0.05f..1f,
-                        modifier = Modifier.height(28.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp)
                     )
 
                     // Quick Opacity Presets
@@ -217,11 +219,11 @@ fun RightSideToolPanel(
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
                                     .clickable { onOpacityChange(op) }
-                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
                             ) {
                                 Text(
                                     text = "${(op * 100).toInt()}%",
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -229,17 +231,17 @@ fun RightSideToolPanel(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     // 3. Quick Color Swatches
                     Text(
                         text = "Палітра кольорів",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -249,7 +251,7 @@ fun RightSideToolPanel(
                         defaultPalette.take(5).forEach { color ->
                             Box(
                                 modifier = Modifier
-                                    .size(24.dp)
+                                    .size(28.dp)
                                     .clip(CircleShape)
                                     .background(color.toColor())
                                     .border(
@@ -264,7 +266,7 @@ fun RightSideToolPanel(
                         // Custom Color Picker Button
                         Box(
                             modifier = Modifier
-                                .size(26.dp)
+                                .size(30.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.primaryContainer)
                                 .clickable { onOpenFullColorPicker() },
@@ -274,7 +276,7 @@ fun RightSideToolPanel(
                                 imageVector = Icons.Default.Palette,
                                 contentDescription = "Палітра",
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }

@@ -81,7 +81,7 @@ class CanvasEditorViewModel(
     private val _drawWithFingers = MutableStateFlow(false)
     val drawWithFingers: StateFlow<Boolean> = _drawWithFingers.asStateFlow()
 
-    private val _zoomScale = MutableStateFlow(1f)
+    private val _zoomScale = MutableStateFlow(3f)
     val zoomScale: StateFlow<Float> = _zoomScale.asStateFlow()
 
     private val _rulerState = MutableStateFlow(RulerState())
@@ -243,68 +243,258 @@ class CanvasEditorViewModel(
         }
     }
 
-    fun insertShape(shapeType: ShapeType) {
+    fun insertShape(shapeType: ShapeType, targetX: Float = 160f, targetY: Float = 160f) {
         val page = currentPage ?: return
         pushUndoState(page)
-        val count = page.shapes.size + page.textBlocks.size + page.charts.size + page.images.size
-        val offset = count * 35f
         val newShape = ShapeEntity(
             shapeType = shapeType,
-            x = 120f + offset,
-            y = 120f + offset,
-            width = 160f,
-            height = 160f,
+            x = targetX,
+            y = targetY,
+            width = 180f,
+            height = 180f,
             fillColor = _currentColor.value.copy(alpha = 0.2f).toArgbInt(),
             strokeColor = _currentColor.value.toArgbInt()
         )
         updateCurrentPage(page.copy(shapes = page.shapes + newShape))
     }
 
-    fun insertText(text: String) {
+    fun insertText(text: String, targetX: Float = 160f, targetY: Float = 160f) {
         val page = currentPage ?: return
         pushUndoState(page)
-        val count = page.shapes.size + page.textBlocks.size + page.charts.size + page.images.size
-        val offset = count * 35f
         val newText = TextBlockEntity(
             text = text,
-            x = 120f + offset,
-            y = 120f + offset,
+            x = targetX,
+            y = targetY,
             color = _currentColor.value.toArgbInt()
         )
         updateCurrentPage(page.copy(textBlocks = page.textBlocks + newText))
     }
 
-    fun insertChart() {
+    fun insertMathFunctionChart(formula: String = "sin(x)", xMin: Float = -10f, xMax: Float = 10f, targetX: Float = 160f, targetY: Float = 160f) {
         val page = currentPage ?: return
         pushUndoState(page)
-        val count = page.shapes.size + page.textBlocks.size + page.charts.size + page.images.size
-        val offset = count * 35f
+        val graphW = 380f
+        val graphH = 260f
+
+        val sampleCount = 160
+        val step = (xMax - xMin) / sampleCount
+        val yValues = mutableListOf<Double>()
+        var minY = Double.MAX_VALUE
+        var maxY = -Double.MAX_VALUE
+
+        for (i in 0..sampleCount) {
+            val x = xMin + i * step
+            val y = evaluateMathFormula(formula, x.toDouble())
+            yValues.add(y)
+            if (!y.isNaN() && !y.isInfinite()) {
+                if (y < minY) minY = y
+                if (y > maxY) maxY = y
+            }
+        }
+
+        if (minY >= maxY) {
+            minY = -1.0
+            maxY = 1.0
+        }
+
+        val points = mutableListOf<StrokePoint>()
+        for (i in yValues.indices) {
+            val xVal = xMin + i * step
+            val yVal = yValues[i]
+            val normX = (xVal - xMin) / (xMax - xMin)
+            val normY = 1.0 - ((yVal - minY) / (maxY - minY).coerceAtLeast(0.001))
+
+            val canvasX = targetX + normX.toFloat() * graphW
+            val canvasY = targetY + normY.toFloat() * graphH
+            points.add(StrokePoint(canvasX, canvasY))
+        }
+
+        val chartStroke = StrokeEntity(
+            tool = ToolType.INK_PEN,
+            colorHsla = _currentColor.value,
+            baseWidth = 3.5f,
+            points = points
+        )
+
+        val textLabel = TextBlockEntity(
+            text = "f(x) = $formula [$xMin .. $xMax]",
+            x = targetX,
+            y = targetY - 28f,
+            fontSize = 15f,
+            color = _currentColor.value.toArgbInt()
+        )
+
+        val gridChart = ChartElementEntity(
+            x = targetX,
+            y = targetY,
+            width = graphW,
+            height = graphH
+        )
+
+        updateCurrentPage(
+            page.copy(
+                charts = page.charts + gridChart,
+                strokes = page.strokes + chartStroke,
+                textBlocks = page.textBlocks + textLabel
+            )
+        )
+    }
+
+    private fun evaluateMathFormula(formula: String, x: Double): Double {
+        val clean = formula.lowercase().replace(" ", "")
+        return try {
+            when {
+                clean.contains("sin") -> {
+                    val factor = clean.replace("sin(x)", "").replace("sin", "").replace("*", "").toDoubleOrNull() ?: 1.0
+                    Math.sin(x) * factor
+                }
+                clean.contains("cos") -> {
+                    val factor = clean.replace("cos(x)", "").replace("cos", "").replace("*", "").toDoubleOrNull() ?: 1.0
+                    Math.cos(x) * factor
+                }
+                clean.contains("tan") -> Math.tan(x)
+                clean.contains("x*x") || clean.contains("x^2") -> x * x
+                clean.contains("x*x*x") || clean.contains("x^3") -> x * x * x
+                clean.contains("sqrt") -> Math.sqrt(x)
+                clean.contains("1/x") -> if (x != 0.0) 1.0 / x else 0.0
+                else -> {
+                    if (clean.contains("*x")) {
+                        val m = clean.substringBefore("*x").toDoubleOrNull() ?: 1.0
+                        val b = clean.substringAfter("+", "0").toDoubleOrNull() ?: 0.0
+                        m * x + b
+                    } else if (clean.contains("x")) {
+                        val b = clean.substringAfter("+", "0").toDoubleOrNull() ?: 0.0
+                        x + b
+                    } else {
+                        clean.toDoubleOrNull() ?: 0.0
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            0.0
+        }
+    }
+
+    fun insertChart(targetX: Float = 160f, targetY: Float = 160f) {
+        val page = currentPage ?: return
+        pushUndoState(page)
         val newChart = ChartElementEntity(
-            x = 120f + offset,
-            y = 120f + offset,
-            width = 400f,
-            height = 300f
+            x = targetX,
+            y = targetY,
+            width = 380f,
+            height = 260f
         )
         updateCurrentPage(page.copy(charts = page.charts + newChart))
     }
 
-    fun insertImage(uri: android.net.Uri) {
+    fun insertImage(uri: android.net.Uri, targetX: Float = 160f, targetY: Float = 160f) {
         val page = currentPage ?: return
         viewModelScope.launch {
             val imagePath = repository.saveImportedImage(uri)
-            val count = page.shapes.size + page.textBlocks.size + page.charts.size + page.images.size
-            val offset = count * 35f
+            val file = File(imagePath)
+            var w = 340f
+            var h = 240f
+            if (file.exists()) {
+                val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeFile(file.absolutePath, opts)
+                if (opts.outWidth > 0 && opts.outHeight > 0) {
+                    val aspect = opts.outWidth.toFloat() / opts.outHeight.toFloat()
+                    if (aspect >= 1f) {
+                        w = 360f
+                        h = (360f / aspect).coerceAtLeast(100f)
+                    } else {
+                        h = 360f
+                        w = (360f * aspect).coerceAtLeast(100f)
+                    }
+                }
+            }
+
             val newImg = ImageElementEntity(
                 id = UUID.randomUUID().toString(),
                 sourceUri = imagePath,
-                x = 120f + offset,
-                y = 120f + offset,
-                width = 320f,
-                height = 320f
+                x = targetX,
+                y = targetY,
+                width = w,
+                height = h,
+                opacity = 1.0f
             )
             pushUndoState(page)
             updateCurrentPage(page.copy(images = page.images + newImg))
         }
+    }
+
+    fun deleteElement(id: String, type: String) {
+        val page = currentPage ?: return
+        pushUndoState(page)
+        when (type) {
+            "SHAPE" -> updateCurrentPage(page.copy(shapes = page.shapes.filterNot { it.id == id }))
+            "IMAGE" -> updateCurrentPage(page.copy(images = page.images.filterNot { it.id == id }))
+            "TEXT" -> updateCurrentPage(page.copy(textBlocks = page.textBlocks.filterNot { it.id == id }))
+            "CHART" -> updateCurrentPage(page.copy(charts = page.charts.filterNot { it.id == id }))
+        }
+    }
+
+    fun rotateElement(id: String, type: String) {
+        val page = currentPage ?: return
+        pushUndoState(page)
+        when (type) {
+            "IMAGE" -> {
+                val updated = page.images.map {
+                    if (it.id == id) it.copy(rotation = (it.rotation + 90f) % 360f) else it
+                }
+                updateCurrentPage(page.copy(images = updated))
+            }
+            "SHAPE" -> {
+                val updated = page.shapes.map {
+                    if (it.id == id) it.copy(rotation = (it.rotation + 90f) % 360f) else it
+                }
+                updateCurrentPage(page.copy(shapes = updated))
+            }
+            "CHART" -> {
+                val updated = page.charts.map {
+                    if (it.id == id) it.copy(width = it.height, height = it.width) else it
+                }
+                updateCurrentPage(page.copy(charts = updated))
+            }
+            "TEXT" -> {
+                val updated = page.textBlocks.map {
+                    if (it.id == id) it.copy(width = it.height, height = it.width) else it
+                }
+                updateCurrentPage(page.copy(textBlocks = updated))
+            }
+        }
+    }
+
+    fun updateImageOpacity(imageId: String, opacity: Float) {
+        val page = currentPage ?: return
+        val updatedImages = page.images.map {
+            if (it.id == imageId) it.copy(opacity = opacity.coerceIn(0.1f, 1.0f)) else it
+        }
+        updateCurrentPage(page.copy(images = updatedImages))
+    }
+
+    fun updateImageSize(imageId: String, width: Float, height: Float) {
+        val page = currentPage ?: return
+        val updatedImages = page.images.map {
+            if (it.id == imageId) it.copy(width = width.coerceAtLeast(50f), height = height.coerceAtLeast(50f)) else it
+        }
+        updateCurrentPage(page.copy(images = updatedImages))
+    }
+
+    fun updateShapeSize(shapeId: String, width: Float, height: Float) {
+        val page = currentPage ?: return
+        val updatedShapes = page.shapes.map {
+            if (it.id == shapeId) it.copy(width = width.coerceAtLeast(30f), height = height.coerceAtLeast(30f)) else it
+        }
+        updateCurrentPage(page.copy(shapes = updatedShapes))
+    }
+
+    fun updateChartSize(chartId: String, width: Float, height: Float) {
+        val page = currentPage ?: return
+        val updatedCharts = page.charts.map {
+            if (it.id == chartId) it.copy(width = width.coerceAtLeast(100f), height = height.coerceAtLeast(100f)) else it
+        }
+        updateCurrentPage(page.copy(charts = updatedCharts))
     }
 
     fun updateShapePosition(shapeId: String, newX: Float, newY: Float) {

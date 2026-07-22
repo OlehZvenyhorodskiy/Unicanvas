@@ -50,7 +50,26 @@ fun ColorPickerBottomSheet(
     var alpha by remember { mutableFloatStateOf(initialColor.alpha) }
 
     val currentColor = remember(hue, saturation, lightness, alpha) {
-        HslaColor(hue, saturation, lightness, alpha)
+        val hsla = HslaColor(hue, saturation, lightness, alpha)
+        onColorSelected(hsla)
+        hsla
+    }
+
+    val presetColors = remember {
+        listOf(
+            HslaColor(0f, 0f, 0f, 1f),       // Black
+            HslaColor(0f, 0f, 1f, 1f),       // White
+            HslaColor(0f, 1f, 0.5f, 1f),     // Pure Red
+            HslaColor(350f, 0.8f, 0.45f, 1f),// Crimson
+            HslaColor(220f, 0.9f, 0.55f, 1f),// Royal Blue
+            HslaColor(195f, 0.9f, 0.5f, 1f), // Cyan / Sky Blue
+            HslaColor(140f, 0.8f, 0.45f, 1f),// Emerald Green
+            HslaColor(45f, 0.95f, 0.5f, 1f), // Yellow / Gold
+            HslaColor(25f, 0.9f, 0.5f, 1f),  // Orange
+            HslaColor(270f, 0.8f, 0.55f, 1f),// Purple
+            HslaColor(310f, 0.8f, 0.5f, 1f), // Magenta / Pink
+            HslaColor(210f, 0.2f, 0.4f, 1f)  // Slate Grey
+        )
     }
 
     ModalBottomSheet(
@@ -60,7 +79,7 @@ fun ColorPickerBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp)
+                .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -68,7 +87,7 @@ fun ColorPickerBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Палітра кольорів",
+                    text = "Вибір кольору",
                     style = MaterialTheme.typography.titleLarge
                 )
 
@@ -80,13 +99,48 @@ fun ColorPickerBottomSheet(
                             .background(currentColor.toColor())
                             .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     TextButton(onClick = {
-                        onColorSelected(currentColor)
-                        onDismiss()
+                        // Reset to factory black
+                        hue = 0f
+                        saturation = 0f
+                        lightness = 0f
+                        alpha = 1f
                     }) {
-                        Text("Вибрати")
+                        Text("Скинути")
                     }
+                    TextButton(onClick = onDismiss) {
+                        Text("Готово", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Standard Preset Swatches Palette
+            Text(
+                text = "Готові палітри",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(presetColors) { color ->
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(color.toColor())
+                            .border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                            .clickable {
+                                hue = color.hue
+                                saturation = color.saturation
+                                lightness = color.lightness
+                                alpha = color.alpha
+                            }
+                    )
                 }
             }
 
@@ -157,7 +211,7 @@ fun ColorPickerBottomSheet(
                 valueRange = 0.05f..1f
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

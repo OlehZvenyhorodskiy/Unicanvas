@@ -38,16 +38,19 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -116,6 +119,12 @@ fun CanvasEditorScreen(
     var showExportDialog by remember { mutableStateOf(false) }
     var showTextInputDialog by remember { mutableStateOf(false) }
     var textInputVal by remember { mutableStateOf("") }
+    var showMathFunctionDialog by remember { mutableStateOf(false) }
+    var mathFormulaVal by remember { mutableStateOf("sin(x)") }
+    var mathXMinVal by remember { mutableStateOf("-10") }
+    var mathXMaxVal by remember { mutableStateOf("10") }
+
+    var isSlidersVertical by remember { mutableStateOf(false) }
 
     // Image Picker Launcher
     val insertImageLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -153,8 +162,14 @@ fun CanvasEditorScreen(
                     }
                 },
                 actions = {
-                    // Audio Recorder Button
+                    // Audio Recorder Button & Waveform
                     val isRecording = audioStatus is RecordingStatus.Recording
+                    if (isRecording) {
+                        com.example.ui.components.AudioWaveformVisualizer(
+                            isRecording = true,
+                            recordingTimeText = "00:15"
+                        )
+                    }
                     IconButton(
                         onClick = {
                             if (isRecording) {
@@ -190,11 +205,6 @@ fun CanvasEditorScreen(
                     // Redo
                     IconButton(onClick = { viewModel.redo() }) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
-                    }
-
-                    // Insert Menu (+)
-                    IconButton(onClick = { showInsertSheet = true }) {
-                        Icon(imageVector = Icons.Default.AddCircle, contentDescription = "Вставити", tint = MaterialTheme.colorScheme.primary)
                     }
 
                     // Export Share Button
@@ -246,7 +256,17 @@ fun CanvasEditorScreen(
                 onMoveShape = { id, x, y -> viewModel.updateShapePosition(id, x, y) },
                 onMoveText = { id, x, y -> viewModel.updateTextPosition(id, x, y) },
                 onMoveImage = { id, x, y -> viewModel.updateImagePosition(id, x, y) },
-                onMoveChart = { id, x, y -> viewModel.updateChartPosition(id, x, y) }
+                onMoveChart = { id, x, y -> viewModel.updateChartPosition(id, x, y) },
+                onDeleteElement = { id, type -> viewModel.deleteElement(id, type) },
+                onRotateElement = { id, type -> viewModel.rotateElement(id, type) },
+                onUpdateImageOpacity = { id, op -> viewModel.updateImageOpacity(id, op) },
+                onResizeElement = { id, type, w, h ->
+                    when (type) {
+                        "SHAPE" -> viewModel.updateShapeSize(id, w, h)
+                        "IMAGE" -> viewModel.updateImageSize(id, w, h)
+                        "CHART" -> viewModel.updateChartSize(id, w, h)
+                    }
+                }
             )
 
             // 2. Ruler Overlay
@@ -256,108 +276,28 @@ fun CanvasEditorScreen(
                 onCloseClick = { viewModel.setRulerState(rulerState.copy(isVisible = false)) }
             )
 
-            // 3. Top Floating Drawing Toolbar
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 12.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.92f),
-                shadowElevation = 8.dp,
-                tonalElevation = 6.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Tool 1: Pen
-                    ToolIconButton(
-                        icon = Icons.Default.Create,
-                        label = "Ручка",
-                        isSelected = currentTool == ToolType.PEN,
-                        onClick = { viewModel.selectTool(ToolType.PEN) }
-                    )
-
-                    // Tool 2: Pencil
-                    ToolIconButton(
-                        icon = Icons.Default.Brush,
-                        label = "Олівець",
-                        isSelected = currentTool == ToolType.PENCIL,
-                        onClick = { viewModel.selectTool(ToolType.PENCIL) }
-                    )
-
-                    // Tool 3: Ink Pen
-                    ToolIconButton(
-                        icon = Icons.Default.FormatPaint,
-                        label = "Перо",
-                        isSelected = currentTool == ToolType.INK_PEN,
-                        onClick = { viewModel.selectTool(ToolType.INK_PEN) }
-                    )
-
-                    // Tool 4: Selector / Lasso
-                    ToolIconButton(
-                        icon = Icons.Default.CropSquare,
-                        label = "Ласо",
-                        isSelected = currentTool == ToolType.SELECTOR,
-                        onClick = { viewModel.selectTool(ToolType.SELECTOR) }
-                    )
-
-                    // Tool 5: Eraser
-                    ToolIconButton(
-                        icon = Icons.Default.Radio,
-                        label = if (eraserMode == EraserMode.OBJECT) "Стерка (Об'єкт)" else "Стерка (Піксель)",
-                        isSelected = currentTool == ToolType.ERASER,
-                        onClick = {
-                            if (currentTool == ToolType.ERASER) {
-                                // Toggle mode
-                                val nextMode = if (eraserMode == EraserMode.OBJECT) EraserMode.PIXEL else EraserMode.OBJECT
-                                viewModel.setEraserMode(nextMode)
-                            } else {
-                                viewModel.selectTool(ToolType.ERASER)
-                            }
-                        }
-                    )
-
-                    // Tool 6: Ruler
-                    ToolIconButton(
-                        icon = Icons.Default.Straighten,
-                        label = "Лінійка",
-                        isSelected = rulerState.isVisible,
-                        onClick = { viewModel.selectTool(ToolType.RULER) }
-                    )
-
-                    // Color Picker Button
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(currentColor.toColor())
-                            .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                            .clickable { showColorPickerSheet = true }
-                    )
-
-                    // Mini Sliders Toggle Button
-                    IconButton(onClick = { showMiniSliders = !showMiniSliders }) {
-                        Icon(imageVector = Icons.Default.Tune, contentDescription = "Товщина/Прозорість")
-                    }
-                }
-            }
-
-            // 4. Right Side Floating Tool Panel (Thickness, Opacity, Colors)
-            RightSideToolPanel(
+            // 3. Top Floating Drawing Toolbar with Left (Width) & Right (Opacity) Sliders
+            com.example.ui.components.TopFloatingToolbar(
+                currentTool = currentTool,
+                eraserMode = eraserMode,
                 strokeWidth = strokeWidth,
                 strokeOpacity = strokeOpacity,
                 currentColor = currentColor,
-                recentColors = recentColors,
-                onWidthChange = { viewModel.setStrokeWidth(it) },
-                onOpacityChange = { viewModel.setStrokeOpacity(it) },
-                onColorSelect = { viewModel.setColor(it) },
-                onOpenFullColorPicker = { showColorPickerSheet = true },
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp)
+                rulerVisible = rulerState.isVisible,
+                isSlidersVertical = isSlidersVertical,
+                onToolSelect = { viewModel.selectTool(it) },
+                onEraserModeToggle = {
+                    val nextMode = if (eraserMode == EraserMode.OBJECT) EraserMode.PIXEL else EraserMode.OBJECT
+                    viewModel.setEraserMode(nextMode)
+                },
+                onStrokeWidthChange = { viewModel.setStrokeWidth(it) },
+                onStrokeOpacityChange = { viewModel.setStrokeOpacity(it) },
+                onColorPickerClick = { showColorPickerSheet = true },
+                onToggleSliderOrientation = { isSlidersVertical = !isSlidersVertical },
+                modifier = Modifier.align(Alignment.TopCenter)
             )
+
+            // Right side panel removed per user request for clean canvas space
 
             // 5. Mini Sliders Overlay (Optional top overlay)
             AnimatedVisibility(
@@ -377,7 +317,19 @@ fun CanvasEditorScreen(
                 )
             }
 
-            // 5. Bottom Left Overlay (Page count & Zoom)
+            // 5. Bottom 'Додати' Floating Button
+            ExtendedFloatingActionButton(
+                onClick = { showInsertSheet = true },
+                icon = { Icon(imageVector = Icons.Default.Add, contentDescription = "Додати") },
+                text = { Text("Додати", fontWeight = FontWeight.Bold) },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
+            )
+
+            // 6. Bottom Left Overlay (Page count & Zoom)
             BottomLeftOverlay(
                 currentPage = currentPageIndex,
                 totalPages = pages.size,
@@ -387,7 +339,8 @@ fun CanvasEditorScreen(
                     val nextZoom = when {
                         zoomScale < 1f -> 1f
                         zoomScale < 2f -> 2f
-                        else -> 0.5f
+                        zoomScale < 3f -> 3f
+                        else -> 1f
                     }
                     viewModel.setZoomScale(nextZoom)
                 },
@@ -431,7 +384,7 @@ fun CanvasEditorScreen(
             onInsertImageClick = { insertImageLauncher.launch("image/*") },
             onInsertTextClick = { showTextInputDialog = true },
             onInsertShapeClick = { shapeType -> viewModel.insertShape(shapeType) },
-            onInsertChartClick = { viewModel.insertChart() },
+            onInsertChartClick = { showMathFunctionDialog = true },
             onPasteContentClick = { viewModel.insertText("Вставлено з буфера") },
             onDismiss = { showInsertSheet = false }
         )
@@ -454,6 +407,79 @@ fun CanvasEditorScreen(
             isLoading = isAiLoading,
             onSendMessage = { viewModel.sendAiPrompt(it) },
             onDismiss = { showGeminiSheet = false }
+        )
+    }
+
+    // Math Function Plotter Dialog
+    if (showMathFunctionDialog) {
+        AlertDialog(
+            onDismissRequest = { showMathFunctionDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Default.ShowChart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Вставити графік функції")
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Введіть математичну формулу (наприклад: sin(x), cos(x)*2, x^2 - 4, 2*x + 1):",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = mathFormulaVal,
+                        onValueChange = { mathFormulaVal = it },
+                        label = { Text("Формула y = f(x)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = mathXMinVal,
+                            onValueChange = { mathXMinVal = it },
+                            label = { Text("X min") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = mathXMaxVal,
+                            onValueChange = { mathXMaxVal = it },
+                            label = { Text("X max") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        viewModel.insertChart()
+                        showMathFunctionDialog = false
+                    }) {
+                        Text("Порожня сітка")
+                    }
+                    Button(onClick = {
+                        val xMin = mathXMinVal.toFloatOrNull() ?: -10f
+                        val xMax = mathXMaxVal.toFloatOrNull() ?: 10f
+                        viewModel.insertMathFunctionChart(
+                            formula = mathFormulaVal.trim().ifEmpty { "sin(x)" },
+                            xMin = xMin,
+                            xMax = xMax
+                        )
+                        showMathFunctionDialog = false
+                    }) {
+                        Text("Побудувати графік")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMathFunctionDialog = false }) {
+                    Text("Скасувати")
+                }
+            }
         )
     }
 
