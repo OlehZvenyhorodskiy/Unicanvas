@@ -49,10 +49,10 @@ fun ColorPickerBottomSheet(
     var lightness by remember { mutableFloatStateOf(initialColor.lightness) }
     var alpha by remember { mutableFloatStateOf(initialColor.alpha) }
 
-    val currentColor = remember(hue, saturation, lightness, alpha) {
-        val hsla = HslaColor(hue, saturation, lightness, alpha)
-        onColorSelected(hsla)
-        hsla
+    val currentColor = HslaColor(hue, saturation, lightness, alpha)
+
+    androidx.compose.runtime.LaunchedEffect(hue, saturation, lightness, alpha) {
+        onColorSelected(currentColor)
     }
 
     val presetColors = remember {

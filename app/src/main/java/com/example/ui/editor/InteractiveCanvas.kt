@@ -475,29 +475,32 @@ fun InteractiveCanvas(
                         style = Stroke(2f * currentScale)
                     )
 
-                    // Exponential Dynamic Grid: Keeps grid square size constant (~32dp) and adds new squares dynamically
-                    val baseSquareSize = 32f * currentScale
-                    val cols = (cw / baseSquareSize).roundToInt().coerceAtLeast(3)
-                    val rows = (ch / baseSquareSize).roundToInt().coerceAtLeast(3)
+                    // Dynamic Square Grid: Keeps grid unit size fixed to maintain strict square aspect ratio
+                    val squareSize = 32f * currentScale
+                    val cols = (cw / squareSize).toInt().coerceAtLeast(1)
+                    val rows = (ch / squareSize).toInt().coerceAtLeast(1)
 
-                    val cellW = cw / cols
-                    val cellH = ch / rows
-
-                    for (i in 1 until cols) {
-                        drawLine(
-                            color = chartGridColor,
-                            start = Offset(cx + i * cellW, cy),
-                            end = Offset(cx + i * cellW, cy + ch),
-                            strokeWidth = 1f
-                        )
+                    for (i in 1..cols) {
+                        val xPos = cx + i * squareSize
+                        if (xPos < cx + cw) {
+                            drawLine(
+                                color = chartGridColor,
+                                start = Offset(xPos, cy),
+                                end = Offset(xPos, cy + ch),
+                                strokeWidth = 1f
+                            )
+                        }
                     }
-                    for (j in 1 until rows) {
-                        drawLine(
-                            color = chartGridColor,
-                            start = Offset(cx, cy + j * cellH),
-                            end = Offset(cx + cw, cy + j * cellH),
-                            strokeWidth = 1f
-                        )
+                    for (j in 1..rows) {
+                        val yPos = cy + j * squareSize
+                        if (yPos < cy + ch) {
+                            drawLine(
+                                color = chartGridColor,
+                                start = Offset(cx, yPos),
+                                end = Offset(cx + cw, yPos),
+                                strokeWidth = 1f
+                            )
+                        }
                     }
 
                     // Main X and Y Axes through Center
