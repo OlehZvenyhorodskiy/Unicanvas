@@ -87,9 +87,9 @@ class CanvasEditorViewModel(
     private val _rulerState = MutableStateFlow(RulerState())
     val rulerState: StateFlow<RulerState> = _rulerState.asStateFlow()
 
-    // Undo / Redo history per page
-    private val undoHistory = mutableListOf<List<StrokeEntity>>()
-    private val redoHistory = mutableListOf<List<StrokeEntity>>()
+    // Undo / Redo history per page snapshot
+    private val pageUndoHistory = mutableListOf<PageEntity>()
+    private val pageRedoHistory = mutableListOf<PageEntity>()
 
     // Gemini Messages
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -138,7 +138,7 @@ class CanvasEditorViewModel(
     }
 
     fun setStrokeWidth(w: Float) {
-        _strokeWidth.value = w.coerceIn(1f, 22f)
+        _strokeWidth.value = w.coerceIn(1f, 50f)
     }
 
     fun setStrokeOpacity(op: Float) {
@@ -168,7 +168,7 @@ class CanvasEditorViewModel(
 
     fun addStrokeToCurrentPage(stroke: StrokeEntity) {
         val page = currentPage ?: return
-        pushUndoState(page.strokes)
+        pushUndoState(page)
         val updatedStrokes = page.strokes + stroke
         val updatedPage = page.copy(strokes = updatedStrokes)
         updateCurrentPage(updatedPage)
@@ -176,7 +176,7 @@ class CanvasEditorViewModel(
 
     fun eraseAtPoint(point: Offset, radius: Float) {
         val page = currentPage ?: return
-        pushUndoState(page.strokes)
+        pushUndoState(page)
         if (_eraserMode.value == EraserMode.OBJECT) {
             val updatedStrokes = page.strokes.filterNot { stroke ->
                 DrawingEngine.isPointInStroke(point, stroke, radius)
@@ -193,27 +193,27 @@ class CanvasEditorViewModel(
     }
 
     fun undo() {
-        if (undoHistory.isNotEmpty()) {
+        if (pageUndoHistory.isNotEmpty()) {
             val page = currentPage ?: return
-            redoHistory.add(page.strokes)
-            val previousStrokes = undoHistory.removeAt(undoHistory.size - 1)
-            updateCurrentPage(page.copy(strokes = previousStrokes))
+            pageRedoHistory.add(page)
+            val previousPage = pageUndoHistory.removeAt(pageUndoHistory.size - 1)
+            updateCurrentPage(previousPage)
         }
     }
 
     fun redo() {
-        if (redoHistory.isNotEmpty()) {
+        if (pageRedoHistory.isNotEmpty()) {
             val page = currentPage ?: return
-            undoHistory.add(page.strokes)
-            val nextStrokes = redoHistory.removeAt(redoHistory.size - 1)
-            updateCurrentPage(page.copy(strokes = nextStrokes))
+            pageUndoHistory.add(page)
+            val nextPage = pageRedoHistory.removeAt(pageRedoHistory.size - 1)
+            updateCurrentPage(nextPage)
         }
     }
 
-    private fun pushUndoState(strokes: List<StrokeEntity>) {
-        if (undoHistory.size >= 50) undoHistory.removeAt(0)
-        undoHistory.add(strokes)
-        redoHistory.clear()
+    private fun pushUndoState(page: PageEntity) {
+        if (pageUndoHistory.size >= 50) pageUndoHistory.removeAt(0)
+        pageUndoHistory.add(page)
+        pageRedoHistory.clear()
     }
 
     private fun updateCurrentPage(page: PageEntity) {
@@ -245,10 +245,13 @@ class CanvasEditorViewModel(
 
     fun insertShape(shapeType: ShapeType) {
         val page = currentPage ?: return
+        pushUndoState(page)
+        val count = page.shapes.size + page.textBlocks.size + page.charts.size + page.images.size
+        val offset = count * 35f
         val newShape = ShapeEntity(
             shapeType = shapeType,
-            x = 200f,
-            y = 200f,
+            x = 120f + offset,
+            y = 120f + offset,
             width = 160f,
             height = 160f,
             fillColor = _currentColor.value.copy(alpha = 0.2f).toArgbInt(),
@@ -259,10 +262,13 @@ class CanvasEditorViewModel(
 
     fun insertText(text: String) {
         val page = currentPage ?: return
+        pushUndoState(page)
+        val count = page.shapes.size + page.textBlocks.size + page.charts.size + page.images.size
+        val offset = count * 35f
         val newText = TextBlockEntity(
             text = text,
-            x = 150f,
-            y = 150f,
+            x = 120f + offset,
+            y = 120f + offset,
             color = _currentColor.value.toArgbInt()
         )
         updateCurrentPage(page.copy(textBlocks = page.textBlocks + newText))
@@ -270,13 +276,67 @@ class CanvasEditorViewModel(
 
     fun insertChart() {
         val page = currentPage ?: return
+        pushUndoState(page)
+        val count = page.shapes.size + page.textBlocks.size + page.charts.size + page.images.size
+        val offset = count * 35f
         val newChart = ChartElementEntity(
-            x = 100f,
-            y = 100f,
+            x = 120f + offset,
+            y = 120f + offset,
             width = 400f,
             height = 300f
         )
         updateCurrentPage(page.copy(charts = page.charts + newChart))
+    }
+
+    fun insertImage(uri: android.net.Uri) {
+        val page = currentPage ?: return
+        viewModelScope.launch {
+            val imagePath = repository.saveImportedImage(uri)
+            val count = page.shapes.size + page.textBlocks.size + page.charts.size + page.images.size
+            val offset = count * 35f
+            val newImg = ImageElementEntity(
+                id = UUID.randomUUID().toString(),
+                sourceUri = imagePath,
+                x = 120f + offset,
+                y = 120f + offset,
+                width = 320f,
+                height = 320f
+            )
+            pushUndoState(page)
+            updateCurrentPage(page.copy(images = page.images + newImg))
+        }
+    }
+
+    fun updateShapePosition(shapeId: String, newX: Float, newY: Float) {
+        val page = currentPage ?: return
+        val updatedShapes = page.shapes.map {
+            if (it.id == shapeId) it.copy(x = newX, y = newY) else it
+        }
+        updateCurrentPage(page.copy(shapes = updatedShapes))
+    }
+
+    fun updateTextPosition(textId: String, newX: Float, newY: Float) {
+        val page = currentPage ?: return
+        val updatedTexts = page.textBlocks.map {
+            if (it.id == textId) it.copy(x = newX, y = newY) else it
+        }
+        updateCurrentPage(page.copy(textBlocks = updatedTexts))
+    }
+
+    fun updateImagePosition(imageId: String, newX: Float, newY: Float) {
+        val page = currentPage ?: return
+        val updatedImages = page.images.map {
+            if (it.id == imageId) it.copy(x = newX, y = newY) else it
+        }
+        updateCurrentPage(page.copy(images = updatedImages))
+    }
+
+    fun updateChartPosition(chartId: String, newX: Float, newY: Float) {
+        val page = currentPage ?: return
+        val updatedCharts = page.charts.map {
+            if (it.id == chartId) it.copy(x = newX, y = newY) else it
+        }
+        updateCurrentPage(page.copy(charts = updatedCharts))
     }
 
     fun setCurrentPage(index: Int) {

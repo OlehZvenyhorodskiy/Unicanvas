@@ -16,7 +16,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.runtime.collectAsState
 import com.example.data.repository.CanvasRepository
+import com.example.data.repository.UserPreferencesRepository
+import com.example.ui.auth.LoginScreen
 import com.example.ui.editor.CanvasEditorScreen
 import com.example.ui.editor.CanvasEditorViewModel
 import com.example.ui.home.HomeScreen
@@ -46,9 +49,29 @@ fun MeCanvasApp() {
     val navController = rememberNavController()
     val context = LocalContext.current
     val repository = remember { CanvasRepository(context) }
-    val homeViewModel = remember { HomeViewModel(repository) }
+    val userPrefsRepository = remember { UserPreferencesRepository(context) }
+    val isLoggedIn = userPrefsRepository.isLoggedIn.collectAsState(initial = false).value
+    val homeViewModel = remember { HomeViewModel(repository, userPrefsRepository) }
 
-    NavHost(navController = navController, startDestination = "home") {
+    val startDestination = if (isLoggedIn) "home" else "login"
+
+    NavHost(navController = navController, startDestination = startDestination) {
+        composable("login") {
+            LoginScreen(
+                userPreferencesRepository = userPrefsRepository,
+                onLoginSuccess = {
+                    navController.navigate("home") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                onSkip = {
+                    navController.navigate("home") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable("home") {
             HomeScreen(
                 viewModel = homeViewModel,

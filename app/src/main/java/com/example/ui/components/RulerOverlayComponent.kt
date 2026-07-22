@@ -36,11 +36,14 @@ fun RulerOverlayComponent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
+            .pointerInput(rulerState) {
                 detectTransformGestures { centroid, pan, zoom, rotation ->
-                    val newCenter = rulerState.center + pan
-                    val newAngle = rulerState.angleRad + (rotation * Math.PI / 180f).toFloat()
-                    onRulerChange(rulerState.copy(center = newCenter, angleRad = newAngle))
+                    val distToCenter = (centroid - rulerState.center).getDistance()
+                    if (distToCenter <= rulerState.length / 2f + 60f) {
+                        val newCenter = rulerState.center + pan
+                        val newAngle = rulerState.angleRad + (rotation * Math.PI / 180f).toFloat()
+                        onRulerChange(rulerState.copy(center = newCenter, angleRad = newAngle))
+                    }
                 }
             }
     ) {

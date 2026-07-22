@@ -174,8 +174,12 @@ fun CanvasTopMenuBottomSheet(
                 Pair(PageSizePreset.A4_HORIZONTAL, "A4 (гор)"),
                 Pair(PageSizePreset.RATIO_16_9_VERTICAL, "16:9 (верт)"),
                 Pair(PageSizePreset.RATIO_16_9_HORIZONTAL, "16:9 (гор)"),
-                Pair(PageSizePreset.LETTER_11X85, "Letter 11x8.5\"")
+                Pair(PageSizePreset.LETTER_11X85, "Letter 11x8.5\""),
+                Pair(PageSizePreset.CUSTOM, "Власний розмір")
             )
+
+            var customW by remember { mutableStateOf("1200") }
+            var customH by remember { mutableStateOf(1600.toString()) }
 
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -183,8 +187,45 @@ fun CanvasTopMenuBottomSheet(
                 items(presets) { (preset, label) ->
                     FilterChip(
                         selected = currentPreset == preset,
-                        onClick = { onPresetChange(preset, null, null) },
+                        onClick = {
+                            if (preset == PageSizePreset.CUSTOM) {
+                                onPresetChange(preset, customW.toFloatOrNull() ?: 1200f, customH.toFloatOrNull() ?: 1600f)
+                            } else {
+                                onPresetChange(preset, null, null)
+                            }
+                        },
                         label = { Text(label) }
+                    )
+                }
+            }
+
+            if (currentPreset == PageSizePreset.CUSTOM) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = customW,
+                        onValueChange = {
+                            customW = it
+                            val w = it.toFloatOrNull()
+                            val h = customH.toFloatOrNull()
+                            if (w != null && h != null) onPresetChange(PageSizePreset.CUSTOM, w, h)
+                        },
+                        label = { Text("Ширина (px)") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = customH,
+                        onValueChange = {
+                            customH = it
+                            val w = customW.toFloatOrNull()
+                            val h = it.toFloatOrNull()
+                            if (w != null && h != null) onPresetChange(PageSizePreset.CUSTOM, w, h)
+                        },
+                        label = { Text("Висота (px)") },
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }

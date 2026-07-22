@@ -180,8 +180,18 @@ class CanvasRepository(private val context: Context) {
         return@withContext newPage
     }
 
+    suspend fun insertPages(pages: List<PageEntity>) = withContext(Dispatchers.IO) {
+        pageDao.insertPages(pages)
+    }
+
     suspend fun duplicatePage(pageId: String) = withContext(Dispatchers.IO) {
-        // Simple page duplication
+        val original = pageDao.getPageByIdSync(pageId) ?: return@withContext
+        val canvasPages = pageDao.getPagesForCanvasSync(original.canvasId)
+        val newPage = original.copy(
+            id = UUID.randomUUID().toString(),
+            pageIndex = canvasPages.size
+        )
+        pageDao.insertPage(newPage)
     }
 
     suspend fun deletePage(page: PageEntity) = withContext(Dispatchers.IO) {

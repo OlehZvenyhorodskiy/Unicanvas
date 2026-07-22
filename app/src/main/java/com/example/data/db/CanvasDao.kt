@@ -42,6 +42,9 @@ interface PageDao {
     @Query("SELECT * FROM pages WHERE canvasId = :canvasId ORDER BY pageIndex ASC")
     suspend fun getPagesForCanvasSync(canvasId: String): List<PageEntity>
 
+    @Query("SELECT * FROM pages WHERE id = :id")
+    suspend fun getPageByIdSync(id: String): PageEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPage(page: PageEntity)
 

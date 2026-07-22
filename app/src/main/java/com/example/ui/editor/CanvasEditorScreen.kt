@@ -80,6 +80,7 @@ import com.example.ui.components.GeminiChatBottomSheet
 import com.example.ui.components.InsertMenuBottomSheet
 import com.example.ui.components.MiniSlidersOverlay
 import com.example.ui.components.PageStripBottomSheet
+import com.example.ui.components.RightSideToolPanel
 import com.example.ui.components.RulerOverlayComponent
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -116,6 +117,25 @@ fun CanvasEditorScreen(
     var showTextInputDialog by remember { mutableStateOf(false) }
     var textInputVal by remember { mutableStateOf("") }
 
+    // Image Picker Launcher
+    val insertImageLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let { viewModel.insertImage(it) }
+    }
+
+    // Audio Permission Launcher
+    val audioPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.startAudioRecording()
+            Toast.makeText(context, "Запис аудіо розпочато...", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Потрібен дозвіл на запис аудіо", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -141,8 +161,17 @@ fun CanvasEditorScreen(
                                 viewModel.stopAudioRecording()
                                 Toast.makeText(context, "Запис лекції збережено!", Toast.LENGTH_SHORT).show()
                             } else {
-                                viewModel.startAudioRecording()
-                                Toast.makeText(context, "Запис аудіо розпочато...", Toast.LENGTH_SHORT).show()
+                                val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context,
+                                    android.Manifest.permission.RECORD_AUDIO
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+                                if (hasPermission) {
+                                    viewModel.startAudioRecording()
+                                    Toast.makeText(context, "Запис аудіо розпочато...", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    audioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                                }
                             }
                         }
                     ) {
@@ -210,9 +239,14 @@ fun CanvasEditorScreen(
                 drawWithFingers = drawWithFingers,
                 rulerState = rulerState,
                 zoomScale = zoomScale,
+                onZoomChanged = { viewModel.setZoomScale(it) },
                 onStrokeAdded = { stroke -> viewModel.addStrokeToCurrentPage(stroke) },
                 onEraseAtPoint = { pt, radius -> viewModel.eraseAtPoint(pt, radius) },
-                onTwoFingerTap = { viewModel.undo() }
+                onTwoFingerTap = { viewModel.undo() },
+                onMoveShape = { id, x, y -> viewModel.updateShapePosition(id, x, y) },
+                onMoveText = { id, x, y -> viewModel.updateTextPosition(id, x, y) },
+                onMoveImage = { id, x, y -> viewModel.updateImagePosition(id, x, y) },
+                onMoveChart = { id, x, y -> viewModel.updateChartPosition(id, x, y) }
             )
 
             // 2. Ruler Overlay
@@ -310,7 +344,22 @@ fun CanvasEditorScreen(
                 }
             }
 
-            // 4. Mini Sliders Overlay
+            // 4. Right Side Floating Tool Panel (Thickness, Opacity, Colors)
+            RightSideToolPanel(
+                strokeWidth = strokeWidth,
+                strokeOpacity = strokeOpacity,
+                currentColor = currentColor,
+                recentColors = recentColors,
+                onWidthChange = { viewModel.setStrokeWidth(it) },
+                onOpacityChange = { viewModel.setStrokeOpacity(it) },
+                onColorSelect = { viewModel.setColor(it) },
+                onOpenFullColorPicker = { showColorPickerSheet = true },
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 8.dp)
+            )
+
+            // 5. Mini Sliders Overlay (Optional top overlay)
             AnimatedVisibility(
                 visible = showMiniSliders,
                 enter = fadeIn(),
@@ -379,7 +428,7 @@ fun CanvasEditorScreen(
         InsertMenuBottomSheet(
             drawWithFingers = drawWithFingers,
             onDrawWithFingersChange = { viewModel.setDrawWithFingers(it) },
-            onInsertImageClick = {},
+            onInsertImageClick = { insertImageLauncher.launch("image/*") },
             onInsertTextClick = { showTextInputDialog = true },
             onInsertShapeClick = { shapeType -> viewModel.insertShape(shapeType) },
             onInsertChartClick = { viewModel.insertChart() },

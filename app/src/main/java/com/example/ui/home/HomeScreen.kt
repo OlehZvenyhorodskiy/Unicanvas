@@ -69,9 +69,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.models.CanvasEntity
 import java.io.File
@@ -89,14 +91,18 @@ fun HomeScreen(
     val canvases by viewModel.canvases.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isSearchActive by viewModel.isSearchActive.collectAsState()
+    val userEmail by viewModel.userEmail.collectAsState()
+    val userName by viewModel.userName.collectAsState()
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
 
     var selectedTabIndex by remember { mutableIntStateOf(0) } // 0: Мої канви, 1: Шаблони
     var canvasToRename by remember { mutableStateOf<CanvasEntity?>(null) }
     var renameInputText by remember { mutableStateOf("") }
+    var showAccountMenu by remember { mutableStateOf(false) }
 
     // File picker for import PDF or photo
     val importPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
             viewModel.importPdfOrImage(context, it) { canvasId ->
@@ -141,12 +147,56 @@ fun HomeScreen(
                         }
 
                         OutlinedButton(
-                            onClick = { importPickerLauncher.launch("*/*") },
-                            modifier = Modifier.padding(end = 8.dp)
+                            onClick = { importPickerLauncher.launch(arrayOf("application/pdf", "image/*")) },
+                            modifier = Modifier.padding(horizontal = 4.dp)
                         ) {
                             Icon(imageVector = Icons.Default.NoteAdd, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Імпорт PDF / Фото")
+                            Text("Імпорт")
+                        }
+
+                        // Account Profile Button
+                        Box {
+                            IconButton(onClick = { showAccountMenu = true }) {
+                                androidx.compose.material3.Surface(
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(34.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = userName?.take(2)?.uppercase() ?: "ОЗ",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = showAccountMenu,
+                                onDismissRequest = { showAccountMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(userName ?: "Олег Звенигородський", fontWeight = FontWeight.Bold)
+                                            Text(userEmail ?: "olehzvenyhorodskiy@gmail.com", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    },
+                                    onClick = { showAccountMenu = false }
+                                )
+                                androidx.compose.material3.HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("Вийти з акаунту") },
+                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        showAccountMenu = false
+                                        viewModel.logout()
+                                    }
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -188,6 +238,63 @@ fun HomeScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp)
         ) {
+            // User Google Account Info Card
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp, bottom = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.Surface(
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = (userName ?: "Олег Звенигородський").split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").ifEmpty { "ОЗ" },
+                                color = androidx.compose.ui.graphics.Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = userName ?: "Олег Звенигородський",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            androidx.compose.material3.Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.primary
+                            ) {
+                                Text(
+                                    text = "Google",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = userEmail ?: "olehzvenyhorodskiy@gmail.com",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                        )
+                    }
+                }
+            }
+
             // Google Drive Backup Banner
             Card(
                 shape = RoundedCornerShape(16.dp),
@@ -209,12 +316,12 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Google Drive Авто-Синхронізація",
+                            text = "Локальне збереження та експорт",
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
-                            text = "Експортовані конспекти зберігаються у папці 'MeCanvas Exports'",
+                            text = "Експортовані конспекти у форматі PDF/PNG зберігаються у локальному сховищі та доступні для поширення",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
